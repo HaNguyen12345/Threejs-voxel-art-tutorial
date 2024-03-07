@@ -108,7 +108,11 @@ function createMainScene() {
     2,
     params.boxRoundness
   );
-  voxelMaterial = new THREE.MeshLambertMaterial({});
+  voxelMaterial = new THREE.MeshLambertMaterial({
+    transparent: true, // Enable transparency for the material
+    opacity: 0.5, // Initial opacity (can be adjusted by the parameter)
+    // ... other material properties
+  });
 
   const planeGeometry = new THREE.PlaneGeometry(35, 35);
   const shadowPlaneMaterial = new THREE.ShadowMaterial({
@@ -514,13 +518,14 @@ function updateSceneSize() {
 function createControls() {
   const gui = new GUI();
   gui
-    .add(params, "transparent", 0.05, 0.1)
+    .add(params, "transparent", 0, 1)
     .step(0.01)
     .onChange(() => {
-      console.log("transparent", instancedMesh.material.transparent);
+      console.log("transparent", RoundedBoxGeometry);
       instancedMesh.material.transparent = true;
-      instancedMesh.material.opacity = 0.4;
-    });
+      instancedMesh.material.opacity = params.transparent;
+    })
+    .name("transparency");
   gui
     .add(params, "showOriginal")
     .onChange((v) => {
