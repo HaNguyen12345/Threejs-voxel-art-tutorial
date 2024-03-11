@@ -21,12 +21,16 @@ let voxels = [];
 
 let activeModelIdx = 4;
 const modelURLs = [
-  "https://ksenia-k.com/models/Chili%20Pepper.glb",
-  "https://ksenia-k.com/models/Chicken.glb",
-  "https://ksenia-k.com/models/Cherry.glb",
-  "https://ksenia-k.com/models/Banana%20Bundle.glb",
-  "https://ksenia-k.com/models/Bonsai.glb",
-  "https://ksenia-k.com/models/egg.glb",
+  // "https://ksenia-k.com/models/Chili%20Pepper.glb",
+  // "https://ksenia-k.com/models/Chicken.glb",
+  // "https://ksenia-k.com/models/Cherry.glb",
+  // "https://ksenia-k.com/models/Banana%20Bundle.glb",
+  // "https://ksenia-k.com/models/Bonsai.glb",
+  // "https://ksenia-k.com/models/egg.glb",
+  "../Box.glb",
+  "../Box.glb",
+  "../Box.glb",
+  "../Box.glb",
   "../test002.glb",
 ];
 
@@ -517,11 +521,18 @@ function updateSceneSize() {
 }
 function createControls() {
   const gui = new GUI();
+  // const colorFormats = {
+  //   string: "#ffffff",
+  //   int: 0xffffff,
+  //   object: { r: 1, g: 1, b: 1 },
+  //   array: [1, 1, 1],
+  // };
+
+  // gui.addColor(colorFormats, "color");
   gui
     .add(params, "transparent", 0, 1)
     .step(0.01)
     .onChange(() => {
-      console.log("transparent", RoundedBoxGeometry);
       instancedMesh.material.transparent = true;
       instancedMesh.material.opacity = params.transparent;
     })
