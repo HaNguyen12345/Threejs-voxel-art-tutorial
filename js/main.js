@@ -19,7 +19,7 @@ let previewScenes = [];
 const voxelsPerModel = [];
 let voxels = [];
 
-let activeModelIdx = 4;
+let activeModelIdx = 0;
 const modelURLs = [
   // "https://ksenia-k.com/models/Chili%20Pepper.glb",
   // "https://ksenia-k.com/models/Chicken.glb",
@@ -27,11 +27,9 @@ const modelURLs = [
   // "https://ksenia-k.com/models/Banana%20Bundle.glb",
   // "https://ksenia-k.com/models/Bonsai.glb",
   // "https://ksenia-k.com/models/egg.glb",
-  "../Box.glb",
-  "../Box.glb",
-  "../Box.glb",
-  "../Box.glb",
+  // "../Box.glb",
   "../test002.glb",
+  // "../test05.glb",
 ];
 
 const params = {
@@ -98,9 +96,9 @@ function createMainScene() {
 
   mainOrbit = new OrbitControls(mainCamera, containerEl);
   mainOrbit.enablePan = false;
-  mainOrbit.autoRotate = true;
-  mainOrbit.minDistance = 20;
-  mainOrbit.maxDistance = 30;
+  // mainOrbit.autoRotate = true;
+  mainOrbit.minDistance = 0;
+  mainOrbit.maxDistance = 1000;
   mainOrbit.minPolarAngle = 0.35 * Math.PI;
   mainOrbit.maxPolarAngle = 0.65 * Math.PI;
   mainOrbit.enableDamping = true;
@@ -155,7 +153,7 @@ function createPreviewScene(modelIdx) {
   );
   orbit.minDistance = 2;
   orbit.maxDistance = 5;
-  orbit.autoRotate = true;
+  orbit.autoRotate = false;
   orbit.autoRotateSpeed = 6;
   orbit.enableDamping = true;
   scene.userData.orbit = orbit;
@@ -327,13 +325,16 @@ function voxelizeModel(modelIdx, importedScene) {
         for (let meshCnt = 0; meshCnt < importedMeshes.length; meshCnt++) {
           const mesh = importedMeshes[meshCnt];
 
-          const color = new THREE.Color();
-          const { h, s, l } = mesh.material.color.getHSL(color);
-          color.setHSL(h, s * 0.8, l * 0.8 + 0.2);
+          // const color = new THREE.Color();
+          // const { h, s, l } = mesh.material.color.getHSL(color);
+          // color.setHSL(h, s * 0.8, l * 0.8 + 0.2);
+          const color = new THREE.Color(Math.random() * 0xffffff);
+          console.table(color, "color");
           const pos = new THREE.Vector3(i, j, k);
 
           if (isInsideMesh(pos, new THREE.Vector3(0, 0, 1), mesh)) {
             modelVoxels.push({ color: color, position: pos });
+            console.table(modelVoxels, "voxels");
             break;
           }
         }
