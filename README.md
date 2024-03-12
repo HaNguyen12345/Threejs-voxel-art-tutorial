@@ -1,41 +1,43 @@
-# Turning 3D models to voxel art with Three.js
+<p align="center">
+  <a href="https://thatopen.com/">TOC</a>
+  |
+  <a href="https://docs.thatopen.com/intro">documentation</a>
+  |
+  <a href="https://platform.thatopen.com/app">demo</a>
+  |
+  <a href="https://people.thatopen.com/">community</a>
+  |
+  <a href="https://www.npmjs.com/package/openbim-app-templates">npm package</a>
+</p>
 
-Final demo for the tutorial on how to turn glTF models to voxels with Three.js
+![cover](cover.png)
 
-![Image Title](voxels-preview.gif)
+<h1>Open BIM app templates <img src="https://ifcjs.github.io/components/resources/favicon.ico" width="32"></h1>
 
-[Article on Codrops](https://tympanus.net/codrops/?p=70997)
+[![NPM Package][npm]][npm-url]
+[![NPM Package][npm-downloads]][npm-url]
+[![Tests](https://github.com/IFCjs/components/actions/workflows/tests.yml/badge.svg)](https://github.com/IFCjs/components/actions/workflows/tests.yaml)
 
-[Demo](http://tympanus.net/Tutorials/Voxelizer/)
+This repository is a CLI command that allow to quickly start your next BIM application using [OpenBIM Components](https://github.com/IFCjs/components) and [Vite](https://vitejs.dev/).
 
+### Usage
 
-## Installation
+Starting is really easy, just follow these steps:
 
-No package manager / build system is needed since both Three.js modules and GSAP lib are imported with CDN + import map. You can run the page as it is on local server (any web server, really).
+* Install it globally with `npm i -g openbim-app-templates`.
+* Create a folder anywhere you want and open it within your IDE.
+* In the terminal of the opened folder, run `create-openbim-app` and follow the prompts.
+* Run `npm i` and then `npm run dev`
+* Go to the localhost provided by Vite and enjoy.
 
+## Templates
+Currently, there are two templates available:
 
-The page is using the following libs:
+* Vanilla
+* React
 
-- Three.js + their addons OrbitControls, GLTFLoader and RoundedBoxGeometry, [more info](https://threejs.org/docs/#manual/en/introduction/Installation)
+Templates are using TypeScript as OpenBIM Components is written with it, so you can get typing help when developing your app. Keep in mind the templates are not full apps as they lack many of the functionalities from the library, but you can take them as a nice starting point to not going from the scratch.
 
-- GSAP to handle transitions between 3D models [more info](https://greensock.com/docs/v3/Installation?checked=core) 
-
-## Credits
-
-- [Chili Pepper](https://poly.pizza/m/2x3UVYE7D-R) by [jeremy](https://poly.pizza/u/jeremy) [[CC-BY](https://creativecommons.org/licenses/by/3.0/)] via Poly Pizza
-- [Chicken](https://poly.pizza/m/1YE8U35HXsI) by [jeremy](https://poly.pizza/u/jeremy) [[CC-BY](https://creativecommons.org/licenses/by/3.0/)] via Poly Pizza
-- [Cherry](https://poly.pizza/m/8BsjISKsNIz) by [Poly by Google](https://poly.pizza/u/Poly%20by%20Google) [[CC-BY](https://creativecommons.org/licenses/by/3.0/)] via Poly Pizza
-- [Banana Bundle](https://poly.pizza/m/1ySgHdwK0q) by [BlenderVoyage](https://poly.pizza/u/BlenderVoyage)
-- [Bonsai](https://poly.pizza/m/44XK5UHTd4Q) by [Don Carson](https://poly.pizza/u/Don%20Carson) [[CC-BY](https://creativecommons.org/licenses/by/3.0/)] via Poly Pizza
-- [Egg sunny side up](https://poly.pizza/m/7KnEsnu6Db1) by [Poly by Google](https://poly.pizza/u/Poly%20by%20Google) [[CC-BY](https://creativecommons.org/licenses/by/3.0/)] [[CC-BY](https://creativecommons.org/licenses/by/3.0/)] via Poly Pizza
-
-## Misc
-
-Follow Ksenia: [Twitter](https://twitter.com/uuuuuulala), [Codepen](https://codepen.io/ksenia-k), [website](https://ksenia-k.com/), [Instagram](https://instagram.com/ksenia_showcase/)
-
-Follow Codrops: [Twitter](http://www.twitter.com/codrops), [Facebook](http://www.facebook.com/codrops), [GitHub](https://github.com/codrops), [Instagram](https://www.instagram.com/codropsss/)
-
-## License
-[MIT](LICENSE)
-
-Made with :blue_heart:  by [Codrops](http://www.codrops.com)# voxel-mesh-model
+[npm]: https://img.shields.io/npm/v/openbim-app-templates
+[npm-url]: https://www.npmjs.com/package/openbim-app-templates
+[npm-downloads]: https://img.shields.io/npm/dw/openbim-app-templates
