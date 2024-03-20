@@ -5,9 +5,9 @@ import { cullerUpdater } from './culler-updater';
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const params = {
-	gridSize: 2,
-	boxSize: 2,
-	boxRoundness: 0
+	gridSize: 1.5,
+	boxSize: 1.5,
+	boxRoundness: 0.03
 }
 
 export class ModelLoader {
@@ -131,13 +131,22 @@ export class ModelLoader {
 			// await cacher.save(model.uuid, fileURL);
 
 			await this.setupLoadedModel(model);
+			console.log('model', model)
 
 			// if (!isCached) {
 			// 	await cacher.saveFragmentGroup(model, fileID);
 			// }
-			let modelVoxel = this.voxelizeModel(model.items[1].mesh)
-			scene.add(this.recreateInstancedMesh(modelVoxel, modelVoxel.length))
-			scene.add(model.items[0].mesh)
+			// if (model.items.length > 1) {
+			// 	let modelVoxel = this.voxelizeModel(model.items[1].mesh)
+			// 	let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			// 	scene.add(mesh)
+			// 	scene.add(model.items[0].mesh)
+			// } else {
+				let modelVoxel = this.voxelizeModel(model.items[0].mesh)
+				let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+				scene.add(mesh)
+			// }
+
 		}
 
 		// TODO: this is to prevent highlighting during load before coordination
@@ -226,23 +235,25 @@ export class ModelLoader {
 			}
 		});
 
-		console.log('importedScene', importedScene)
 		let boundingBox: any = new THREE.Box3().setFromObject(importedScene);
-		console.log('importedScene', boundingBox)
 
 		let modelVoxels = [];
 
-		for (let i = boundingBox.min.x; i < boundingBox.max.x; i += params.gridSize) {
-			for (let j = boundingBox.min.y; j < boundingBox.max.y; j += params.gridSize) {
-				for (let k = boundingBox.min.z; k < boundingBox.max.z; k += params.gridSize) {
+		for (let i = boundingBox.min.x; i <= boundingBox.max.x + params.gridSize; i += params.gridSize) {
+			for (let j = boundingBox.min.y; j <= boundingBox.max.y + params.gridSize; j += params.gridSize) {
+				for (let k = boundingBox.min.z; k <= boundingBox.max.z + params.gridSize; k += params.gridSize) {
 					for (let meshCnt = 0; meshCnt < importedMeshes.length; meshCnt++) {
 						const mesh = importedMeshes[meshCnt];
 						const pos = new THREE.Vector3(i, j, k);
 
 						if (
-							this.isInsideMesh(pos, new THREE.Vector3(0, 0, 1), mesh)
-							&& this.isInsideMesh(pos, new THREE.Vector3(1, 0, 0), mesh)
-							&& this.isInsideMesh(pos, new THREE.Vector3(0, 1, 0), mesh)) {
+							this.isInsideMesh(pos, new THREE.Vector3(0, -1, 0), mesh)
+							|| this.isInsideMesh(pos, new THREE.Vector3(1, 0, 0), mesh)
+							|| this.isInsideMesh(pos, new THREE.Vector3(0, 1, 0), mesh)
+							|| this.isInsideMesh(pos, new THREE.Vector3(0, 0, 1), mesh)
+							|| this.isInsideMesh(pos, new THREE.Vector3(-1, 0, 0), mesh)
+							|| this.isInsideMesh(pos, new THREE.Vector3(0, 0, -1), mesh)
+						) {
 							modelVoxels.push({ position: pos });
 							break;
 						}
@@ -254,8 +265,8 @@ export class ModelLoader {
 		// let min = new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z)
 		// let max = new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z)
 
-		// modelVoxels.push({ position: min });
-		// modelVoxels.push({ position: max });
+		// modelVoxels.push({ position: min, color: new THREE.Color().setHSL(.6, .6, .6) });
+		// modelVoxels.push({ position: max, color: new THREE.Color().setHSL(.6, .6, .6) });
 
 		return modelVoxels
 	}
@@ -265,7 +276,7 @@ export class ModelLoader {
 		rayCaster.set(pos, ray);
 		let rayCasterIntersects = rayCaster.intersectObject(mesh, false);
 		// we need odd number of intersections
-		return rayCasterIntersects.length % 2 !== 1;
+		return rayCasterIntersects.length % 2 === 1 && rayCasterIntersects[0].distance <= 1.5 * params.gridSize;
 	}
 
 	private recreateInstancedMesh(array: any, cnt: any) {
@@ -273,14 +284,14 @@ export class ModelLoader {
 		// remove the old mesh and voxels data
 		let voxels = [], instancedMesh,
 			voxelGeometry = new RoundedBoxGeometry(params.boxSize, params.boxSize, params.boxSize, 2, params.boxRoundness),
-			voxelMaterial = new THREE.MeshLambertMaterial({ opacity: 1 }),
+			voxelMaterial = new THREE.MeshLambertMaterial({}),
 			dummy = new THREE.Object3D();
 
 		// re-initiate the voxel array with random colors and positions
 		for (let i = 0; i < cnt; i++) {
 			voxels.push({
 				position: array[i].position,
-				color: new THREE.Color().setHSL(.4, .4, .4)
+				color: array[i].color || new THREE.Color().setHSL(.4, .4, .4)
 			})
 		}
 
@@ -301,6 +312,7 @@ export class ModelLoader {
 		// instancedMesh.instanceColor.needsUpdate = true;
 
 		// add a new mesh to the scene
+
 		return instancedMesh
 	}
 }
