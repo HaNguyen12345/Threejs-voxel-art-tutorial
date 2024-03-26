@@ -5,9 +5,9 @@ import { cullerUpdater } from './culler-updater';
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const params = {
-	gridSize: 1.5,
-	boxSize: 1.5,
-	boxRoundness: 0.03
+	gridSize: 0.15,
+	boxSize: 0.1,
+	boxRoundness: 0.01
 }
 
 export class ModelLoader {
@@ -120,18 +120,18 @@ export class ModelLoader {
 			// }
 			// Otherwise load the IFC and cache it
 
-
 			const rawBuffer = await file.arrayBuffer();
 			const buffer = new Uint8Array(rawBuffer);
 			const loader = await this._components.tools.get(OBC.FragmentIfcLoader);
 			const model = await loader.load(buffer, file.name);
+
+			console.log('model', model)
 
 			// Save the IFC for later export
 			// await cacher.delete([model.uuid]);
 			// await cacher.save(model.uuid, fileURL);
 
 			await this.setupLoadedModel(model);
-			console.log('model', model)
 
 			// if (!isCached) {
 			// 	await cacher.saveFragmentGroup(model, fileID);
@@ -142,9 +142,11 @@ export class ModelLoader {
 			// 	scene.add(mesh)
 			// 	scene.add(model.items[0].mesh)
 			// } else {
-				let modelVoxel = this.voxelizeModel(model.items[0].mesh)
-				let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
-				scene.add(mesh)
+			let modelVoxel = this.voxelizeModel(model.items[1].mesh)
+			let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			scene.add(mesh)
+			// scene.add(model)
+			// scene.add(model.items[1].mesh)
 			// }
 
 		}
@@ -237,7 +239,13 @@ export class ModelLoader {
 
 		let boundingBox: any = new THREE.Box3().setFromObject(importedScene);
 
-		let modelVoxels = [];
+		let modelVoxels: any = [],
+			inItemX: any = [],
+			inItemY: any = [],
+			inItemZ: any = [],
+			inPointX: any = [],
+			inPointY: any = [],
+			inPointZ: any = []
 
 		for (let i = boundingBox.min.x; i <= boundingBox.max.x + params.gridSize; i += params.gridSize) {
 			for (let j = boundingBox.min.y; j <= boundingBox.max.y + params.gridSize; j += params.gridSize) {
@@ -261,6 +269,90 @@ export class ModelLoader {
 				}
 			}
 		}
+		// X
+		modelVoxels.forEach((item: any) => {
+			const isExistPoint = inItemX.find((inItem: any) => inItem.z === item.position.z && inItem.y === item.position.y)
+			if (isExistPoint) {
+				inItemX[inItemX.indexOf(isExistPoint)].listPoint.push(item)
+			} else {
+				inItemX.push({
+					z: item.position.z,
+					y: item.position.y,
+					listPoint: [item]
+				})
+			}
+		})
+
+		inItemX.forEach((inItem: any) => {
+			inItem.listPoint?.forEach((currentPoint: any, currentIndexPoint: any, listPoint: any) => {
+				if (currentIndexPoint > 0 && (currentPoint.position.x - listPoint[currentIndexPoint - 1].position.x > params.gridSize)) {
+					for (let i = listPoint[currentIndexPoint - 1].position.x + params.gridSize; i < currentPoint.position.x; i += params.gridSize) {
+						const pos = new THREE.Vector3(i, currentPoint.position.y, currentPoint.position.z);
+						inPointX.push({ position: pos })
+					}
+				}
+			})
+		})
+
+		// Y
+		modelVoxels.forEach((item: any) => {
+			const isExistPoint = inItemY.find((inItem: any) => inItem.x === item.position.x && inItem.z === item.position.z)
+			if (isExistPoint) {
+				inItemY[inItemY.indexOf(isExistPoint)].listPoint.push(item)
+			} else {
+				inItemY.push({
+					x: item.position.x,
+					z: item.position.z,
+					listPoint: [item]
+				})
+			}
+		})
+
+		inItemY.forEach((inItem: any) => {
+			inItem.listPoint?.forEach((currentPoint: any, currentIndexPoint: any, listPoint: any) => {
+				if (currentIndexPoint > 0 && (currentPoint.position.y - listPoint[currentIndexPoint - 1].position.y > params.gridSize)) {
+					for (let i = listPoint[currentIndexPoint - 1].position.y + params.gridSize; i < currentPoint.position.y; i += params.gridSize) {
+						const pos = new THREE.Vector3(currentPoint.position.x, i, currentPoint.position.z);
+						inPointY.push({ position: pos })
+					}
+				}
+			})
+		})
+
+		// Z
+		modelVoxels.forEach((item: any) => {
+			const isExistPoint = inItemZ.find((inItem: any) => inItem.x === item.position.x && inItem.y === item.position.y)
+			if (isExistPoint) {
+				inItemZ[inItemZ.indexOf(isExistPoint)].listPoint.push(item)
+			} else {
+				inItemZ.push({
+					x: item.position.x,
+					y: item.position.y,
+					listPoint: [item]
+				})
+			}
+		})
+
+		inItemZ.forEach((inItem: any) => {
+			inItem.listPoint?.forEach((currentPoint: any, currentIndexPoint: any, listPoint: any) => {
+				if (currentIndexPoint > 0 && (currentPoint.position.z - listPoint[currentIndexPoint - 1].position.z > params.gridSize)) {
+					for (let i = listPoint[currentIndexPoint - 1].position.z + params.gridSize; i < currentPoint.position.z; i += params.gridSize) {
+						const pos = new THREE.Vector3(currentPoint.position.x, currentPoint.position.y, i);
+						inPointZ.push({ position: pos })
+					}
+				}
+			})
+		})
+
+		var map1 = this.arrayToMap(inPointX);
+		var map2 = this.arrayToMap(inPointY);
+		var map3 = this.arrayToMap(inPointZ);
+
+		for (var key in map1) {
+			if (map2[key] && map3[key]) {
+				modelVoxels.push({...JSON.parse(key), color: new THREE.Color().setHSL(.9, .9, .9)})
+			}
+		}
 
 		// let min = new THREE.Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z)
 		// let max = new THREE.Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z)
@@ -276,24 +368,24 @@ export class ModelLoader {
 		rayCaster.set(pos, ray);
 		let rayCasterIntersects = rayCaster.intersectObject(mesh, false);
 		// we need odd number of intersections
-		return rayCasterIntersects.length % 2 === 1 && rayCasterIntersects[0].distance <= 1.5 * params.gridSize;
+		return rayCasterIntersects.length % 2 === 1 && rayCasterIntersects[0].distance <= params.gridSize;
 	}
 
 	private recreateInstancedMesh(array: any, cnt: any) {
-
+		console.log("cnt", cnt)
 		// remove the old mesh and voxels data
-		let voxels = [], instancedMesh,
+		let instancedMesh,
 			voxelGeometry = new RoundedBoxGeometry(params.boxSize, params.boxSize, params.boxSize, 2, params.boxRoundness),
-			voxelMaterial = new THREE.MeshLambertMaterial({}),
+			voxelMaterial = new THREE.MeshLambertMaterial({ opacity: 0.4, transparent: true }),
 			dummy = new THREE.Object3D();
 
 		// re-initiate the voxel array with random colors and positions
-		for (let i = 0; i < cnt; i++) {
-			voxels.push({
-				position: array[i].position,
-				color: array[i].color || new THREE.Color().setHSL(.4, .4, .4)
-			})
-		}
+		// for (let i = 0; i < cnt; i++) {
+		// 	voxels.push({
+		// 		position: array[i].position,
+		// 		color: array[i].color || new THREE.Color().setHSL(.4, .4, .4)
+		// 	})
+		// }
 
 		// create a new instanced mesh object
 		instancedMesh = new THREE.InstancedMesh(voxelGeometry, voxelMaterial, cnt);
@@ -303,8 +395,8 @@ export class ModelLoader {
 
 		// assign voxels data to the instanced mesh
 		for (let i = 0; i < cnt; i++) {
-			instancedMesh.setColorAt(i, voxels[i].color);
-			dummy.position.copy(voxels[i].position);
+			instancedMesh.setColorAt(i, array[i].color || new THREE.Color().setHSL(.4, .4, .4));
+			dummy.position.copy(array[i].position);
 			dummy.updateMatrix();
 			instancedMesh.setMatrixAt(i, dummy.matrix);
 		}
@@ -314,5 +406,12 @@ export class ModelLoader {
 		// add a new mesh to the scene
 
 		return instancedMesh
+	}
+
+	private arrayToMap(array: any) {
+		return array.reduce(function (map: any, obj: any) {
+			map[JSON.stringify(obj)] = true;
+			return map;
+		}, {});
 	}
 }
