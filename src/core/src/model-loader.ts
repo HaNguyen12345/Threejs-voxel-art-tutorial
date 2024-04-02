@@ -160,8 +160,12 @@ export class ModelLoader {
 			for (let i = 0; i < model.items.length; i++) {
 				// TODO: check capacity
 				if (model.items[i].capacity === 1) {
-					let modelVoxel = this.newVoxelizeModel(model.items[i].mesh as FragmentMesh)
-					let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+					let voxelTask = this.newVoxelizeModel(model.items[i].mesh as FragmentMesh)
+					const arr = []
+					for (const item of voxelTask) {
+						arr.push(item)
+					}
+					let mesh = this.recreateInstancedMesh(arr, arr.length)
 					scene.add(mesh)
 				}
 			}
@@ -175,7 +179,7 @@ export class ModelLoader {
 			// 	scene.add(mesh)
 			// })
 
-			scene.add(model)
+			// scene.add(model)
 			// scene.add(model.items[1].mesh)
 			// }
 
@@ -258,7 +262,9 @@ export class ModelLoader {
 		return loadingModal;
 	}
 
-	private newVoxelizeModel(importedScene: any) {
+	private* newVoxelizeModel(importedScene: any) {
+		const scene = this._components.scene.get();
+
 		const importedMeshes: any = [];
 		importedScene.traverse((child: any) => {
 			if (child instanceof THREE.Mesh) {
@@ -302,6 +308,8 @@ export class ModelLoader {
 					const res = bvh.intersectsBox( box, invMat );
 					if (res) {
 						modelVoxels.push({position: position}); // Thêm voxel vào mảng
+
+						yield {position: position}
 					} else {
 						// transform into the local frame of the model
 						rayX.origin.copy( position ).applyMatrix4( invMat );
@@ -321,43 +329,14 @@ export class ModelLoader {
 
 						) {
 							modelVoxels.push({position: position}); // Thêm voxel vào mảng
+
+							yield {position: position}
 						}
 					}
-					// if (bvh.shapecast({
-					// 	intersectsBounds: (box) => {
-					// 		return voxelBox.intersectsBox(box);
-					// 	},
-					// 	intersectsTriangle: (tri) => {
-					// 		return tri.intersectsBox(voxelBox);
-					// 	}
-					// })) {
-					// 	modelVoxels.push({position: centerPoint}); // Thêm voxel vào mảng
-					// }
-					// else {
-					// 	const directions = [
-					// 		new THREE.Vector3(1, 0, 0),
-					// 		new THREE.Vector3(-1, 0, 0),
-					// 		new THREE.Vector3(0, 1, 0),
-					// 		new THREE.Vector3(0, -1, 0),
-					// 		new THREE.Vector3(0, 0, 1),
-					// 		new THREE.Vector3(0, 0, -1)
-					// 	];
-					//
-					// 	for (const direction of directions) {
-					// 		const ray = new THREE.Ray(centerPoint, direction);
-					// 		const intersects = bvh.raycast(ray, mesh.material);
-					//
-					// 		if (intersects.length > 4) {
-					// 			modelVoxels.push({position: centerPoint});
-					// 			break;
-					// 		}
-					// 	}
-					// }
 				}
 			}
 		}
-
-		return modelVoxels
+		// return modelVoxels
 	}
 
 
