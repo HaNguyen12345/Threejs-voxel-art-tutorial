@@ -85,7 +85,11 @@ export class Initializer {
         const culler = new OBC.ScreenCuller(components);
         const hider = new OBC.FragmentHider(components);
         mainToolbar.addChild(hider.uiElement.get("main"));
-
+        const alertButton = new OBC.Button(components);
+        alertButton.materialIcon = "widgets";
+        alertButton.tooltip = "voxelize";
+        mainToolbar.addChild(alertButton);
+          
         const map = components.tools.get(OBC.MiniMap);
         const mapCanvas = map.uiElement.get("canvas");
         components.ui.add(mapCanvas);

@@ -5,8 +5,8 @@ import { cullerUpdater } from './culler-updater';
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const params = {
-	gridSize: 0.15,
-	boxSize: 0.1,
+	gridSize: 0.5,
+	boxSize: 0.5,
 	boxRoundness: 0.01
 }
 
@@ -142,11 +142,17 @@ export class ModelLoader {
 			// 	scene.add(mesh)
 			// 	scene.add(model.items[0].mesh)
 			// } else {
-			let modelVoxel = this.voxelizeModel(model.items[1].mesh)
-			let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
-			scene.add(mesh)
-			// scene.add(model)
-			// scene.add(model.items[1].mesh)
+				for (const item of model.items) {
+					const modelVoxel = this.voxelizeModel(item.mesh);
+					const mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length);
+					scene.add(mesh);
+					scene.add(item.mesh);
+				}
+			// let modelVoxel = this.voxelizeModel(model.items[1].mesh)
+			// let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			// scene.add(mesh)
+			// // scene.add(model)
+			// scene.add(model.items[0].mesh)
 			// }
 
 		}
@@ -177,7 +183,7 @@ export class ModelLoader {
 		const materialManager = await tools.get(OBC.MaterialManager);
 		const modelTree = await tools.get(OBC.FragmentTree);
 		const hider = await tools.get(OBC.FragmentHider);
-
+		
 		for (const fragment of model.items) {
 			culler.add(fragment.mesh);
 		}
@@ -238,7 +244,9 @@ export class ModelLoader {
 		});
 
 		let boundingBox: any = new THREE.Box3().setFromObject(importedScene);
-
+		const modelSize = boundingBox.getSize(new THREE.Vector3());
+		const maxModelDimension = Math.max(modelSize.x, modelSize.y, modelSize.z);
+		const gridSize = maxModelDimension / 50;
 		let modelVoxels: any = [],
 			inItemX: any = [],
 			inItemY: any = [],
@@ -247,9 +255,9 @@ export class ModelLoader {
 			inPointY: any = [],
 			inPointZ: any = []
 
-		for (let i = boundingBox.min.x; i <= boundingBox.max.x + params.gridSize; i += params.gridSize) {
-			for (let j = boundingBox.min.y; j <= boundingBox.max.y + params.gridSize; j += params.gridSize) {
-				for (let k = boundingBox.min.z; k <= boundingBox.max.z + params.gridSize; k += params.gridSize) {
+		for (let i = boundingBox.min.x; i <= boundingBox.max.x + gridSize; i += gridSize) {
+			for (let j = boundingBox.min.y; j <= boundingBox.max.y + gridSize; j += gridSize) {
+				for (let k = boundingBox.min.z; k <= boundingBox.max.z + gridSize; k += gridSize) {
 					for (let meshCnt = 0; meshCnt < importedMeshes.length; meshCnt++) {
 						const mesh = importedMeshes[meshCnt];
 						const pos = new THREE.Vector3(i, j, k);
@@ -285,8 +293,8 @@ export class ModelLoader {
 
 		inItemX.forEach((inItem: any) => {
 			inItem.listPoint?.forEach((currentPoint: any, currentIndexPoint: any, listPoint: any) => {
-				if (currentIndexPoint > 0 && (currentPoint.position.x - listPoint[currentIndexPoint - 1].position.x > params.gridSize)) {
-					for (let i = listPoint[currentIndexPoint - 1].position.x + params.gridSize; i < currentPoint.position.x; i += params.gridSize) {
+				if (currentIndexPoint > 0 && (currentPoint.position.x - listPoint[currentIndexPoint - 1].position.x > gridSize)) {
+					for (let i = listPoint[currentIndexPoint - 1].position.x + gridSize; i < currentPoint.position.x; i += gridSize) {
 						const pos = new THREE.Vector3(i, currentPoint.position.y, currentPoint.position.z);
 						inPointX.push({ position: pos })
 					}
@@ -310,8 +318,8 @@ export class ModelLoader {
 
 		inItemY.forEach((inItem: any) => {
 			inItem.listPoint?.forEach((currentPoint: any, currentIndexPoint: any, listPoint: any) => {
-				if (currentIndexPoint > 0 && (currentPoint.position.y - listPoint[currentIndexPoint - 1].position.y > params.gridSize)) {
-					for (let i = listPoint[currentIndexPoint - 1].position.y + params.gridSize; i < currentPoint.position.y; i += params.gridSize) {
+				if (currentIndexPoint > 0 && (currentPoint.position.y - listPoint[currentIndexPoint - 1].position.y > gridSize)) {
+					for (let i = listPoint[currentIndexPoint - 1].position.y + gridSize; i < currentPoint.position.y; i += gridSize) {
 						const pos = new THREE.Vector3(currentPoint.position.x, i, currentPoint.position.z);
 						inPointY.push({ position: pos })
 					}
@@ -335,8 +343,8 @@ export class ModelLoader {
 
 		inItemZ.forEach((inItem: any) => {
 			inItem.listPoint?.forEach((currentPoint: any, currentIndexPoint: any, listPoint: any) => {
-				if (currentIndexPoint > 0 && (currentPoint.position.z - listPoint[currentIndexPoint - 1].position.z > params.gridSize)) {
-					for (let i = listPoint[currentIndexPoint - 1].position.z + params.gridSize; i < currentPoint.position.z; i += params.gridSize) {
+				if (currentIndexPoint > 0 && (currentPoint.position.z - listPoint[currentIndexPoint - 1].position.z > gridSize)) {
+					for (let i = listPoint[currentIndexPoint - 1].position.z + gridSize; i < currentPoint.position.z; i += gridSize) {
 						const pos = new THREE.Vector3(currentPoint.position.x, currentPoint.position.y, i);
 						inPointZ.push({ position: pos })
 					}
@@ -368,7 +376,8 @@ export class ModelLoader {
 		rayCaster.set(pos, ray);
 		let rayCasterIntersects = rayCaster.intersectObject(mesh, false);
 		// we need odd number of intersections
-		return rayCasterIntersects.length % 2 === 1 && rayCasterIntersects[0].distance <= params.gridSize;
+		return rayCasterIntersects.length % 2 === 1 
+		&& rayCasterIntersects[0].distance <= params.gridSize /2;
 	}
 
 	private recreateInstancedMesh(array: any, cnt: any) {
