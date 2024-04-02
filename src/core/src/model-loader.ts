@@ -6,8 +6,8 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { MeshBVH } from 'three-mesh-bvh';
 
 const params = {
-	gridSize: 0.3,
-	boxSize: 0.3,
+	gridSize: 0.7,
+	boxSize: 0.7,
 	boxRoundness: 0.01
 }
 
@@ -263,8 +263,6 @@ export class ModelLoader {
 	}
 
 	private* newVoxelizeModel(importedScene: any) {
-		const scene = this._components.scene.get();
-
 		const importedMeshes: any = [];
 		importedScene.traverse((child: any) => {
 			if (child instanceof THREE.Mesh) {
