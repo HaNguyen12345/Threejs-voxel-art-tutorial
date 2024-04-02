@@ -3,10 +3,9 @@ import * as OBC from 'openbim-components';
 import { FragmentsGroup } from 'bim-fragment';
 import { cullerUpdater } from './culler-updater';
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import GUI from "three/examples/jsm/libs/lil-gui.module.min.js";
 
-const params = {
-	gridSize: 0.3,
-	boxSize: 0.3,
+const paramsDefault = {
 	boxRoundness: 0.01
 }
 
@@ -15,6 +14,9 @@ export class ModelLoader {
 	private _components: OBC.Components;
 	private _loadingModal: OBC.Modal;
 	private _blurScreen: OBC.SimpleUIComponent;
+	private currentMesh: any;
+	private params: any = paramsDefault;
+	private minGridSize: any
 
 	constructor(components: OBC.Components) {
 		this._components = components;
@@ -126,12 +128,24 @@ export class ModelLoader {
 			const model = await loader.load(buffer, file.name);
 
 			console.log('model', model)
-
+			const boundingBox = new THREE.Box3().setFromObject(model);
+			let x = Math.abs(boundingBox.max.x - boundingBox.min.x)
+			let y = Math.abs(boundingBox.max.y - boundingBox.min.y)
+			let z = Math.abs(boundingBox.max.z - boundingBox.min.z)
+			console.log("V", x * y * z)
+			let range = Math.sqrt((x * y * z) / 6500).toFixed(1)
+			this.params = {
+				...paramsDefault,
+				gridSize: parseFloat(range),
+				boxSize: parseFloat(range),
+			}
+			this.minGridSize = parseFloat(range)
 			// Save the IFC for later export
 			// await cacher.delete([model.uuid]);
 			// await cacher.save(model.uuid, fileURL);
 
 			await this.setupLoadedModel(model);
+			await this.voxelButton(model)
 
 			// if (!isCached) {
 			// 	await cacher.saveFragmentGroup(model, fileID);
@@ -144,10 +158,10 @@ export class ModelLoader {
 			// } else {
 
 
-			let modelVoxel = this.voxelizeModel(model.items[1].mesh)
-			modelVoxel = this.fillVoxelModel(model.items[1].mesh, modelVoxel);
-			let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
-			scene.add(mesh)
+			// let modelVoxel = this.voxelizeModel(model.items[1].mesh)
+			// modelVoxel = this.fillVoxelModel(model.items[1].mesh, modelVoxel);
+			// let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			// scene.add(mesh)
 
 			// model.items.map((item: any) => {
 			// 	let modelVoxel = this.voxelizeModel(item.mesh)
@@ -155,7 +169,7 @@ export class ModelLoader {
 			// 	scene.add(mesh)
 			// })
 
-			// scene.add(model)
+			scene.add(model)
 			// scene.add(model.items[1].mesh)
 			// }
 
@@ -255,8 +269,8 @@ export class ModelLoader {
 			const boundingBox = new THREE.Box3().setFromObject(mesh);
 
 			// Get size data
-			const gridSize = params.gridSize;
-			const boxSize = params.boxSize;
+			const gridSize = this.params.gridSize;
+			const boxSize = this.params.boxSize;
 			for (let x = boundingBox.min.x - gridSize; x <= boundingBox.max.x + gridSize; x += gridSize) {
 				for (let y = boundingBox.min.y - gridSize; y <= boundingBox.max.y + gridSize; y += gridSize) {
 					for (let z = boundingBox.min.z - gridSize; z <= boundingBox.max.z + gridSize; z += gridSize) {
@@ -284,7 +298,7 @@ export class ModelLoader {
 
 	private testRenderCenterVoxel(point: THREE.Vector3) {
 		const dotGeometry = new THREE.BufferGeometry();
-		dotGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([point.x,point.y,point.z]), 3));
+		dotGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([point.x, point.y, point.z]), 3));
 		const dotMaterial = new THREE.PointsMaterial({ size: 0.05, color: 0xff0000 });
 		const dot = new THREE.Points(dotGeometry, dotMaterial);
 
@@ -311,7 +325,7 @@ export class ModelLoader {
 				count++
 			}
 		}
-		console.log('--------------- count', count)
+		// console.log('--------------- count', count)
 		return count > 4;
 	}
 
@@ -329,8 +343,8 @@ export class ModelLoader {
 			const boundingBox = new THREE.Box3().setFromObject(mesh);
 
 			// Get size data
-			const gridSize = params.gridSize;
-			const boxSize = params.boxSize;
+			const gridSize = this.params.gridSize;
+			const boxSize = this.params.boxSize;
 
 			for (let y = boundingBox.min.y - gridSize; y <= boundingBox.max.y + gridSize; y += gridSize) {
 				for (let z = boundingBox.min.z - gridSize; z <= boundingBox.max.z + gridSize; z += gridSize) {
@@ -340,7 +354,7 @@ export class ModelLoader {
 					const pointListYZ = points.filter((p: THREE.Vector3) => p.y === centerPoint.y && p.z === centerPoint.z);
 
 					for (let i = 0; i < pointListYZ.length; i++) {
-						const indexNextPoint = i+1;
+						const indexNextPoint = i + 1;
 						if (indexNextPoint >= pointListYZ.length) {
 							break
 						}
@@ -357,7 +371,7 @@ export class ModelLoader {
 
 								if (this.isInsideMesh2(newCenterPoint, mesh)) {
 									this.testRenderCenterVoxel(newCenterPoint);
-									modelVoxels.push({position: newCenterPoint})
+									modelVoxels.push({ position: newCenterPoint })
 								}
 							}
 							// skipPoint = nextPoint.clone();
@@ -434,14 +448,14 @@ export class ModelLoader {
 		rayCaster.set(pos, ray);
 		let rayCasterIntersects = rayCaster.intersectObject(mesh, false);
 		// we need odd number of intersections
-		return rayCasterIntersects.length > 0 && rayCasterIntersects[0].distance <= params.gridSize;
+		return rayCasterIntersects.length > 0 && rayCasterIntersects[0].distance <= this.params.gridSize;
 	}
 
 	private recreateInstancedMesh(array: any, cnt: any) {
 		console.log("cnt", cnt)
 		// remove the old mesh and voxels data
 		let instancedMesh,
-			voxelGeometry = new RoundedBoxGeometry(params.boxSize, params.boxSize, params.boxSize, 2, params.boxRoundness),
+			voxelGeometry = new RoundedBoxGeometry(this.params.boxSize, this.params.boxSize, this.params.boxSize, 2, this.params.boxRoundness),
 			voxelMaterial = new THREE.MeshLambertMaterial({ opacity: 0.4, transparent: true }),
 			dummy = new THREE.Object3D();
 
@@ -474,10 +488,57 @@ export class ModelLoader {
 		return instancedMesh
 	}
 
-	private arrayToMap(array: any) {
-		return array.reduce(function (map: any, obj: any) {
-			map[JSON.stringify(obj)] = true;
-			return map;
-		}, {});
+	private voxelButton(model: any) {
+		let buttonActive = true
+		const scene = this._components.scene.get();
+
+		const mainToolbar = new OBC.Toolbar(this._components, {
+			name: 'top',
+			position: "top",
+		})
+		this._components.ui.addToolbar(mainToolbar)
+		const voxelButton = new OBC.Button(this._components)
+		voxelButton.materialIcon = "apps"
+		voxelButton.onClick.add(() => {
+			if (buttonActive) {
+				scene.remove(model)
+				let modelVoxel = this.voxelizeModel(model)
+				modelVoxel = this.fillVoxelModel(model, modelVoxel);
+				let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+				this.currentMesh = mesh
+				this.createNewGui(scene, mesh, model, modelVoxel)
+				scene.add(mesh)
+			} else {
+				scene.add(model)
+				scene.remove(this.currentMesh)
+			}
+			voxelButton.active = buttonActive
+			buttonActive = !buttonActive
+		})
+		mainToolbar.addChild(voxelButton)
+	}
+
+	private createNewGui(scene: any, mesh: any, model: any, modelVoxel: any) {
+		let currentBoxSize = this.params.boxSize
+		const gui = new GUI()
+		gui.add(this.params, "gridSize", this.minGridSize, 2).step(.1).onChange(() => {
+			scene.remove(mesh)
+			modelVoxel = this.voxelizeModel(model)
+			modelVoxel = this.fillVoxelModel(model, modelVoxel);
+			mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			this.currentMesh = mesh
+			scene.add(mesh)
+
+			this.createNewGui(scene, mesh, model, modelVoxel)
+		}).name("grid size");
+		gui.add(this.params, "boxSize", .1, this.params.gridSize).step(.1).setValue(currentBoxSize && currentBoxSize <= this.params.gridSize ? currentBoxSize : this.params.gridSize).onChange((value) => {
+			currentBoxSize = value
+			scene.remove(mesh)
+			modelVoxel = this.voxelizeModel(model)
+			modelVoxel = this.fillVoxelModel(model, modelVoxel);
+			mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			this.currentMesh = mesh
+			scene.add(mesh)
+		})
 	}
 }
