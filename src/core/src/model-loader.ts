@@ -5,8 +5,8 @@ import { cullerUpdater } from './culler-updater';
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const params = {
-	gridSize: 0.3,
-	boxSize: 0.3,
+	gridSize: 0.5,
+	boxSize: 0.5,
 	boxRoundness: 0.01
 }
 
@@ -143,18 +143,33 @@ export class ModelLoader {
 			// 	scene.add(model.items[0].mesh)
 			// } else {
 
-
-			let modelVoxel = this.voxelizeModel(model.items[1].mesh)
-			modelVoxel = this.fillVoxelModel(model.items[1].mesh, modelVoxel);
+			// for(let i = 0; i <= model.items.length - 1; i++){
+			// 	let modelVoxel = this.voxelizeModel(model.items[i].mesh)
+			// 	// modelVoxel = this.fillVoxelModel(model.items[i].mesh, modelVoxel);
+			// 	let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			// 	scene.add(mesh)
+			// }
+			
+			let modelVoxel = this.voxelizeModel(this.ifcBEP);
+			// modelVoxel = this.fillVoxelModel(this.ifcBEP, modelVoxel);
 			let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
 			scene.add(mesh)
 
+
+			// this.ifcBEP1.forEach((child: any) => {
+			// 	if (child instanceof THREE.Mesh) {
+			// 		scene.add(child)
+			// 	}
+			// });
+			
+			
 			// model.items.map((item: any) => {
 			// 	let modelVoxel = this.voxelizeModel(item.mesh)
 			// 	let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
 			// 	scene.add(mesh)
 			// })
 
+			// scene.add(this.ifcBEP1)
 			// scene.add(model)
 			// scene.add(model.items[1].mesh)
 			// }
@@ -177,7 +192,8 @@ export class ModelLoader {
 		this._loadingModal.visible = false;
 	};
 
-
+	public ifcBEP : any = [];
+	public ifcBEP1 : any = [];
 	private async setupLoadedModel(model: FragmentsGroup) {
 		const tools = this._components.tools;
 		const culler = await tools.get(OBC.ScreenCuller);
@@ -190,6 +206,7 @@ export class ModelLoader {
 		const materialManager = await tools.get(OBC.MaterialManager);
 		const modelTree = await tools.get(OBC.FragmentTree);
 		const hider = await tools.get(OBC.FragmentHider);
+		const fragments = await tools.get(OBC.FragmentManager);
 
 		for (const fragment of model.items) {
 			culler.add(fragment.mesh);
@@ -218,7 +235,27 @@ export class ModelLoader {
 		materialManager.addMeshes('white', meshes);
 		await modelTree.update(['storeys', 'entities']);
 
-		await hider.update();
+
+		const classifications = classifier.get();
+		
+		// await hider.update();
+		const found = await classifier.find({entities: ["IFCBUILDINGELEMENTPROXY"]});
+		// hider.set(false, found);
+		this.ifcBEP = [];
+		for (const fragID in found) {
+			const {mesh} = fragments.list[fragID];
+			this.ifcBEP.push(mesh)
+		}
+
+
+		const found1 = await classifier.find({entities: ["IFCREINFORCINGBAR"]});
+		// hider.set(false, found);
+		this.ifcBEP1 = [];
+		for (const fragID in found1) {
+			const {mesh} = fragments.list[fragID];
+			this.ifcBEP1.push(mesh)
+		}
+		// console.log(this.ifcBEP1)
 	}
 
 	private setupLoadingModal() {
@@ -242,7 +279,7 @@ export class ModelLoader {
 
 	private voxelizeModel(importedScene: any) {
 		const importedMeshes: any = [];
-		importedScene.traverse((child: any) => {
+		importedScene.forEach((child: any) => {
 			if (child instanceof THREE.Mesh) {
 				child.material.side = THREE.DoubleSide;
 				importedMeshes.push(child);
@@ -315,10 +352,10 @@ export class ModelLoader {
 		return count > 4;
 	}
 
-	private fillVoxelModel(importedScene: any, modelVoxels: any[]) {
+	private fillVoxelModel(importedScene: any[], modelVoxels: any[]) {
 		const points = modelVoxels.map((p: any) => p.position);
 		const importedMeshes: any = [];
-		importedScene.traverse((child: any) => {
+		importedScene.forEach((child: any) => {
 			if (child instanceof THREE.Mesh) {
 				child.material.side = THREE.DoubleSide;
 				importedMeshes.push(child);
