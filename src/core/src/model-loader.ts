@@ -158,14 +158,12 @@ export class ModelLoader {
 
 			const timestampStart = new Date().getTime();
 			for (let i = 0; i < model.items.length; i++) {
+				// TODO: check capacity
 				if (model.items[i].capacity === 1) {
-					// let modelVoxel = this.voxelizeModel(model.children[i] as FragmentMesh)
 					let modelVoxel = this.newVoxelizeModel(model.items[i].mesh as FragmentMesh)
-					// modelVoxel = this.fillVoxelModel(model.children[i], modelVoxel);
 					let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
 					scene.add(mesh)
 				}
-
 			}
 			const timestampEnd = new Date().getTime();
 			console.log(`Success took ${timestampEnd - timestampStart} ms`)
@@ -177,7 +175,7 @@ export class ModelLoader {
 			// 	scene.add(mesh)
 			// })
 
-			// scene.add(model)
+			scene.add(model)
 			// scene.add(model.items[1].mesh)
 			// }
 
@@ -275,27 +273,66 @@ export class ModelLoader {
 		const bvh = new MeshBVH(importedScene.geometry);
 
 		const boundingBox = new THREE.Box3().setFromObject(mesh);
+		const invMat = new THREE.Matrix4().copy( mesh.matrixWorld ).invert();
+
+		const box = new THREE.Box3();
+
+		const rayX = new THREE.Ray();
+		rayX.direction.set( 1, 0, 0 );
+
+		const rayY = new THREE.Ray();
+		rayY.direction.set( 0, 1, 0 );
+
+		const rayZ = new THREE.Ray();
+		rayZ.direction.set( 0, 0, 1 );
+
 
 		// Get size data
 		const gridSize = params.gridSize;
 		const boxSize = params.boxSize;
-		for (let x = boundingBox.min.x - gridSize; x <= boundingBox.max.x + gridSize; x += gridSize) {
-			for (let y = boundingBox.min.y - gridSize; y <= boundingBox.max.y + gridSize; y += gridSize) {
-				for (let z = boundingBox.min.z - gridSize; z <= boundingBox.max.z + gridSize; z += gridSize) {
+		for (let x = boundingBox.min.x ; x <= boundingBox.max.x ; x += gridSize) {
+			for (let y = boundingBox.min.y ; y <= boundingBox.max.y; y += gridSize) {
+				for (let z = boundingBox.min.z ; z <= boundingBox.max.z; z += gridSize) {
 					// get position form center of voxel block
-					const centerPoint = new THREE.Vector3(x + boxSize, y + boxSize, z + boxSize);
-					const voxelBox = new THREE.Box3(centerPoint, centerPoint.clone().add(new THREE.Vector3(boxSize, boxSize, boxSize)));
+					const position = new THREE.Vector3(x + boxSize / 2, y + boxSize / 2, z + boxSize / 2);
 
-					if (bvh.shapecast({
-						intersectsBounds: (box) => {
-							return voxelBox.intersectsBox(box);
-						},
-						intersectsTriangle: (tri) => {
-							return tri.intersectsBox(voxelBox);
+					box.min.setScalar(-1*gridSize ).add( position );
+					box.max.setScalar(gridSize).add( position );
+
+					const res = bvh.intersectsBox( box, invMat );
+					if (res) {
+						modelVoxels.push({position: position}); // Thêm voxel vào mảng
+					} else {
+						// transform into the local frame of the model
+						rayX.origin.copy( position ).applyMatrix4( invMat );
+						const resX = bvh.raycastFirst( rayX, THREE.DoubleSide );
+
+						rayY.origin.copy( position ).applyMatrix4( invMat );
+						const resY = bvh.raycastFirst( rayY, THREE.DoubleSide );
+
+						rayZ.origin.copy( position ).applyMatrix4( invMat );
+						const resZ = bvh.raycastFirst( rayZ, THREE.DoubleSide );
+
+						if (
+
+							resX && resX.face.normal.dot( rayX.direction ) > 0 &&
+							resY && resY.face.normal.dot( rayY.direction ) > 0 &&
+							resZ && resZ.face.normal.dot( rayZ.direction ) > 0
+
+						) {
+							modelVoxels.push({position: position}); // Thêm voxel vào mảng
 						}
-					})) {
-						modelVoxels.push({position: centerPoint}); // Thêm voxel vào mảng
 					}
+					// if (bvh.shapecast({
+					// 	intersectsBounds: (box) => {
+					// 		return voxelBox.intersectsBox(box);
+					// 	},
+					// 	intersectsTriangle: (tri) => {
+					// 		return tri.intersectsBox(voxelBox);
+					// 	}
+					// })) {
+					// 	modelVoxels.push({position: centerPoint}); // Thêm voxel vào mảng
+					// }
 					// else {
 					// 	const directions = [
 					// 		new THREE.Vector3(1, 0, 0),
@@ -347,7 +384,6 @@ export class ModelLoader {
 						// get position form center of voxel block
 						const centerPoint = new THREE.Vector3(x + boxSize, y + boxSize, z + boxSize);
 
-						this.testRenderCenterVoxel(centerPoint);
 						// this.testRenderCenterVoxel(centerPoint)
 						if (
 							this.isInsideMesh(centerPoint, new THREE.Vector3(0, -1, 0), mesh)
@@ -375,174 +411,6 @@ export class ModelLoader {
 
 		const scene = this._components.scene.get();
 		scene.add(dot)
-	}
-
-	private isInsideMesh2(pos: THREE.Vector3, mesh: any) {
-		const directions = [
-			new THREE.Vector3(1, 0, 0), // Hướng x dương
-			new THREE.Vector3(-1, 0, 0), // Hướng x âm
-			new THREE.Vector3(0, 1, 0), // Hướng y dương
-			new THREE.Vector3(0, -1, 0), // Hướng y âm
-			new THREE.Vector3(0, 0, 1), // Hướng z dương
-			new THREE.Vector3(0, 0, -1) // Hướng z âm
-		];
-
-		const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-		const lines = [];
-		const scene = this._components.scene.get();
-
-		// directions.forEach(direction => {
-		// 	const end = pos.clone().add(direction.multiplyScalar(2)); // Điểm kết thúc của tia
-		// 	const points = [pos, end];
-		// 	const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-		// 	const line = new THREE.Line(lineGeometry, material);
-		// 	lines.push(line);
-		// 	scene.add(line);
-		//
-		// 	const raycaster = new THREE.Raycaster(pos, direction);
-		// 	const intersections = raycaster.intersectObject(mesh);
-		//
-		// 	if (intersections.length > 0) {
-		// 		console.log(`Tia đã va chạm với mặt của hình lập phương.`);
-		// 	} else {
-		// 		console.log(`Tia không va chạm với mặt của hình lập phương.`);
-		// 	}
-		// });
-
-		let count = 0;
-		for (let ray of directions) {
-			const rayCaster = new THREE.Raycaster();
-			rayCaster.set(pos, ray);
-			let rayCasterIntersects = rayCaster.intersectObject(mesh, false);
-			if (rayCasterIntersects.length > 0) {
-				count++
-			}
-		}
-		console.log('--------------- count', count)
-		return count >= 4;
-	}
-
-	private isPointInTriangle(a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3, p: THREE.Vector3) {
-		const v0 = c.clone().sub(a);
-		const v1 = b.clone().sub(a);
-		const v2 = p.clone().sub(a);
-
-		const dot00 = v0.dot(v0);
-		const dot01 = v0.dot(v1);
-		const dot02 = v0.dot(v2);
-		const dot11 = v1.dot(v1);
-		const dot12 = v1.dot(v2);
-
-		const invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
-		const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-		const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
-
-		return (u >= 0) && (v >= 0) && (u + v < 1);
-	}
-
-	private checkInSideMesh(vertices: any[], point: THREE.Vector3) {
-		for (let i = 0; i < vertices.length; i += 3) {
-			const x = vertices[i];
-			const y = vertices[i + 1];
-			const z = vertices[i + 2];
-
-			// Kiểm tra xem điểm có nằm trong tam giác tạo bởi 3 điểm vertex liên tiếp hay không
-			if (
-				this.isPointInTriangle(
-					new THREE.Vector3(x, y, z),
-					new THREE.Vector3(vertices[i + 3], vertices[i + 4], vertices[i + 5]),
-					new THREE.Vector3(vertices[i + 6], vertices[i + 7], vertices[i + 8]),
-					point
-				)
-			) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	private isPointInsideModel(point: THREE.Vector3, mesh: any) {
-		const directions = [
-			new THREE.Vector3(1, 0, 0), // Hướng x dương
-			new THREE.Vector3(-1, 0, 0), // Hướng x âm
-			new THREE.Vector3(0, 1, 0), // Hướng y dương
-			new THREE.Vector3(0, -1, 0), // Hướng y âm
-			new THREE.Vector3(0, 0, 1), // Hướng z dương
-			new THREE.Vector3(0, 0, -1) // Hướng z âm
-		];
-
-		let count = 0;
-		for (let direction of directions) {
-			this._raycaster.set(point, direction);
-			let rayCasterIntersects = this._raycaster.intersectObject(mesh, false);
-			if (rayCasterIntersects.length > 0) {
-				count++;
-			}
-		}
-
-		return count === 6;
-	}
-
-	private fillVoxelModel(importedScene: any, modelVoxels: any[]) {
-		const points = modelVoxels.map((p: any) => p.position);
-		const importedMeshes: any = [];
-
-
-		importedScene.traverse((child: any) => {
-			if (child instanceof THREE.Mesh) {
-				child.material.side = THREE.DoubleSide;
-				importedMeshes.push(child);
-			}
-		});
-
-		for (const mesh of importedMeshes) {
-			let childVertices: any[] = mesh.geometry.attributes.position.array;
-			// scene.add(mesh)
-			const boundingBox = new THREE.Box3().setFromObject(mesh);
-
-			// Get size data
-			const gridSize = params.gridSize;
-			const boxSize = params.boxSize;
-
-			for (let x = boundingBox.min.x - gridSize; x <= boundingBox.max.x + gridSize; x += gridSize) {
-				for (let y = boundingBox.min.y - gridSize; y <= boundingBox.max.y + gridSize; y += gridSize) {
-					const z = boundingBox.max.z + gridSize;
-					// get position form center of voxel block
-					const centerPoint = new THREE.Vector3(x + boxSize, y + boxSize, z + boxSize);
-					const pointListXY = points.filter((p: THREE.Vector3) => p.x === centerPoint.x && p.y === centerPoint.y);
-
-					for (let i = 0; i < pointListXY.length; i++) {
-						const indexNextPoint = i+1;
-						if (indexNextPoint >= pointListXY.length) {
-							break
-						}
-
-						const currentPoint = pointListXY[i];
-						const nextPoint = pointListXY[indexNextPoint];
-
-						const distance = Math.abs(currentPoint.z - nextPoint.z);
-						if (distance > gridSize) {
-							const addQuantity = distance / gridSize;
-							for (let i = 0; i < addQuantity; i++) {
-								const newCenterPoint = new THREE.Vector3(currentPoint.x, currentPoint.y, currentPoint.z  + gridSize * (i + 1));
-								this.testRenderCenterVoxel(newCenterPoint);
-								modelVoxels.push({position: newCenterPoint})
-								if (this.isPointInsideModel(newCenterPoint, mesh)) {
-									// const existModel = modelVoxels.find(p => p.position.x === newCenterPoint.x
-									// 	&&  p.position.y === newCenterPoint.y
-									// 	&&  p.position.z === newCenterPoint.z)
-									// if (existModel) {
-									 	// modelVoxels.push({position: newCenterPoint})
-									// }
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return modelVoxels;
 	}
 
 	private isInsideMesh(pos: any, ray: any, mesh: any) {
