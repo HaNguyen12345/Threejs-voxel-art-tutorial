@@ -5,8 +5,8 @@ import { cullerUpdater } from './culler-updater';
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 const params = {
-	gridSize: 0.15,
-	boxSize: 0.15,
+	gridSize: 0.3,
+	boxSize: 0.3,
 	boxRoundness: 0.01
 }
 
@@ -142,13 +142,26 @@ export class ModelLoader {
 			// 	scene.add(mesh)
 			// 	scene.add(model.items[0].mesh)
 			// } else {
+
+
 			let modelVoxel = this.voxelizeModel(model.items[1].mesh)
+			modelVoxel = this.fillVoxelModel(model.items[1].mesh, modelVoxel);
 			let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
 			scene.add(mesh)
+
+			// model.items.map((item: any) => {
+			// 	let modelVoxel = this.voxelizeModel(item.mesh)
+			// 	let mesh = this.recreateInstancedMesh(modelVoxel, modelVoxel.length)
+			// 	scene.add(mesh)
+			// })
+
 			// scene.add(model)
 			// scene.add(model.items[1].mesh)
 			// }
 
+			// Tạo trục oxyz
+			const axesHelper = new THREE.AxesHelper(5);
+			scene.add(axesHelper);
 		}
 
 		// TODO: this is to prevent highlighting during load before coordination
@@ -228,7 +241,6 @@ export class ModelLoader {
 	}
 
 	private voxelizeModel(importedScene: any) {
-
 		const importedMeshes: any = [];
 		importedScene.traverse((child: any) => {
 			if (child instanceof THREE.Mesh) {
@@ -245,13 +257,13 @@ export class ModelLoader {
 			// Get size data
 			const gridSize = params.gridSize;
 			const boxSize = params.boxSize;
-
 			for (let x = boundingBox.min.x - gridSize; x <= boundingBox.max.x + gridSize; x += gridSize) {
 				for (let y = boundingBox.min.y - gridSize; y <= boundingBox.max.y + gridSize; y += gridSize) {
 					for (let z = boundingBox.min.z - gridSize; z <= boundingBox.max.z + gridSize; z += gridSize) {
 						// get position form center of voxel block
 						const centerPoint = new THREE.Vector3(x + boxSize / 2, y + boxSize / 2, z + boxSize / 2);
 
+						// this.testRenderCenterVoxel(centerPoint)
 						if (
 							this.isInsideMesh(centerPoint, new THREE.Vector3(0, -1, 0), mesh)
 							|| this.isInsideMesh(centerPoint, new THREE.Vector3(1, 0, 0), mesh)
@@ -268,6 +280,153 @@ export class ModelLoader {
 		}
 
 		return modelVoxels
+	}
+
+	private testRenderCenterVoxel(point: THREE.Vector3) {
+		const dotGeometry = new THREE.BufferGeometry();
+		dotGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([point.x,point.y,point.z]), 3));
+		const dotMaterial = new THREE.PointsMaterial({ size: 0.05, color: 0xff0000 });
+		const dot = new THREE.Points(dotGeometry, dotMaterial);
+
+		const scene = this._components.scene.get();
+		scene.add(dot)
+	}
+
+	private isInsideMesh2(pos: any, mesh: any) {
+		const data = [
+			new THREE.Vector3(0, -1, 0),
+			new THREE.Vector3(1, 0, 0),
+			new THREE.Vector3(0, 1, 0),
+			new THREE.Vector3(0, 0, 1),
+			new THREE.Vector3(-1, 0, 0),
+			new THREE.Vector3(0, 0, -1)
+		]
+
+		let count = 0;
+		for (let ray of data) {
+			const rayCaster = new THREE.Raycaster();
+			rayCaster.set(pos, ray);
+			let rayCasterIntersects = rayCaster.intersectObject(mesh, false);
+			if (rayCasterIntersects.length > 0) {
+				count++
+			}
+		}
+		console.log('--------------- count', count)
+		return count > 4;
+	}
+
+	private fillVoxelModel(importedScene: any, modelVoxels: any[]) {
+		const points = modelVoxels.map((p: any) => p.position);
+		const importedMeshes: any = [];
+		importedScene.traverse((child: any) => {
+			if (child instanceof THREE.Mesh) {
+				child.material.side = THREE.DoubleSide;
+				importedMeshes.push(child);
+			}
+		});
+
+		for (const mesh of importedMeshes) {
+			const boundingBox = new THREE.Box3().setFromObject(mesh);
+
+			// Get size data
+			const gridSize = params.gridSize;
+			const boxSize = params.boxSize;
+
+			for (let y = boundingBox.min.y - gridSize; y <= boundingBox.max.y + gridSize; y += gridSize) {
+				for (let z = boundingBox.min.z - gridSize; z <= boundingBox.max.z + gridSize; z += gridSize) {
+					const x = boundingBox.max.x + gridSize;
+					// get position form center of voxel block
+					const centerPoint = new THREE.Vector3(x + boxSize / 2, y + boxSize / 2, z + boxSize / 2);
+					const pointListYZ = points.filter((p: THREE.Vector3) => p.y === centerPoint.y && p.z === centerPoint.z);
+
+					for (let i = 0; i < pointListYZ.length; i++) {
+						const indexNextPoint = i+1;
+						if (indexNextPoint >= pointListYZ.length) {
+							break
+						}
+
+						const currentPoint = pointListYZ[i];
+						const nextPoint = pointListYZ[indexNextPoint];
+
+						const distance = Math.abs(currentPoint.x - nextPoint.x);
+						if (distance > gridSize) {
+							const addQuantity = distance / gridSize;
+							for (let i = 0; i < addQuantity; i++) {
+								const newCenterPoint = new THREE.Vector3(currentPoint.x + gridSize * (i + 1), currentPoint.y, currentPoint.z);
+								// modelVoxels.push({position: newCenterPoint})
+
+								if (this.isInsideMesh2(newCenterPoint, mesh)) {
+									this.testRenderCenterVoxel(newCenterPoint);
+									modelVoxels.push({position: newCenterPoint})
+								}
+							}
+							// skipPoint = nextPoint.clone();
+						}
+					}
+
+					// if (pointListXY.length === 2) {
+					// 	const first = pointListXY[0];
+					// 	const last = pointListXY[pointListXY.length - 1];
+					//
+					// 	const distance = Math.abs(first.z - last.z);
+					// 	if (distance > gridSize/2) {
+					//
+					// 		this.testRenderCenterVoxel(first)
+					// 		this.testRenderCenterVoxel(last)
+					// 		const addQuantity = distance * 2 / gridSize;
+					// 		for (let i = 0; i < addQuantity; i++) {
+					// 			const newCenterPoint = new THREE.Vector3(centerPoint.x, centerPoint.y, first.z + gridSize);
+					// 			modelVoxels.push({position: newCenterPoint})
+					// 		}
+					// 	}
+					// }
+				}
+			}
+
+			// for (let x = boundingBox.min.x - gridSize; x <= boundingBox.max.x + gridSize; x += gridSize) {
+			// 	for (let y = boundingBox.min.y - gridSize; y <= boundingBox.max.y + gridSize; y += gridSize) {
+			// 		const z = boundingBox.max.z + gridSize;
+			// 		// get position form center of voxel block
+			// 		const centerPoint = new THREE.Vector3(x + boxSize / 2, y + boxSize / 2, z + boxSize / 2);
+			// 		const pointListXY = points.filter((p: THREE.Vector3) => p.x === centerPoint.x && p.y === centerPoint.y);
+			//
+			// 		for (let i = 0; i < pointListXY.length; i++) {
+			// 			if (i === pointListXY.length - 1) {
+			// 				break;
+			// 			}
+			//
+			// 			const currentPoint = pointListXY[i];
+			// 			const nextPoint = pointListXY[i+1];
+			// 			const distance = Math.abs(currentPoint.z - nextPoint.z);
+			// 			if (distance > gridSize) {
+			// 				const addQuantity = distance / gridSize;
+			// 				for (let i = 0; i < addQuantity; i++) {
+			// 					const newCenterPoint = new THREE.Vector3(centerPoint.x, centerPoint.y, currentPoint.z + gridSize * (i + 1));
+			// 					modelVoxels.push({position: newCenterPoint})
+			// 				}
+			// 			}
+			// 		}
+			//
+			// 		// if (pointListXY.length === 2) {
+			// 		// 	const first = pointListXY[0];
+			// 		// 	const last = pointListXY[pointListXY.length - 1];
+			// 		//
+			// 		// 	const distance = Math.abs(first.z - last.z);
+			// 		// 	if (distance > gridSize/2) {
+			// 		//
+			// 		// 		this.testRenderCenterVoxel(first)
+			// 		// 		this.testRenderCenterVoxel(last)
+			// 		// 		const addQuantity = distance * 2 / gridSize;
+			// 		// 		for (let i = 0; i < addQuantity; i++) {
+			// 		// 			const newCenterPoint = new THREE.Vector3(centerPoint.x, centerPoint.y, first.z + gridSize);
+			// 		// 			modelVoxels.push({position: newCenterPoint})
+			// 		// 		}
+			// 		// 	}
+			// 		// }
+			// 	}
+			// }
+		}
+		return modelVoxels;
 	}
 
 	private isInsideMesh(pos: any, ray: any, mesh: any) {
