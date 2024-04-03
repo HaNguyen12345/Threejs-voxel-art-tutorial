@@ -159,7 +159,7 @@ export class ModelLoader {
 			let x = Math.abs(boundingBox.max.x - boundingBox.min.x)
 			let y = Math.abs(boundingBox.max.y - boundingBox.min.y)
 			let z = Math.abs(boundingBox.max.z - boundingBox.min.z)
-			let range = Math.sqrt((x * y * z) / 6500).toFixed(1)
+			let range = Math.sqrt((x * y * z) / 5000000).toFixed(1)
 			this.params = {
 				...paramsDefault,
 				gridSize: parseFloat(range),
@@ -483,19 +483,30 @@ export class ModelLoader {
 		voxelButton.materialIcon = "apps"
 		voxelButton.onClick.add(() => {
 			if (buttonActive) {
-				scene.remove(model)
+				// scene.remove(model)
+				this.toggleElementProxy(model, false);
 				let mesh = this.mapMeshtoVoxel(model)
 				this.currentMesh = mesh
 				this.createNewGui(scene, mesh, model)
 				mesh.map((item: any) => scene.add(item))
 			} else {
-				scene.add(model)
+				// scene.add(model)
+				this.toggleElementProxy(model, true);
 				this.currentMesh.map((item: any) => scene.remove(item))
 			}
 			voxelButton.active = buttonActive
 			buttonActive = !buttonActive
 		})
 		mainToolbar.addChild(voxelButton)
+	}
+
+	private async toggleElementProxy(model: any, visiable: boolean){
+		const tools = this._components.tools;
+		const classifier = await tools.get(OBC.FragmentClassifier);
+		const hider = await tools.get(OBC.FragmentHider);
+
+		const elementProxy = await classifier.find({entities: ["IFCBUILDINGELEMENTPROXY"]});
+		hider.set(visiable, elementProxy);
 	}
 
 	private createNewGui(scene: any, mesh: any, model: any) {
