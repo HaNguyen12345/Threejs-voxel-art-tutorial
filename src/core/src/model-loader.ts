@@ -18,6 +18,7 @@ export class ModelLoader {
 	private currentMesh: any;
 	private params: any = paramsDefault;
 	private minGridSize: any
+	private currentGui: any
 	private _raycaster: THREE.Raycaster;
 
 	constructor(components: OBC.Components) {
@@ -73,6 +74,7 @@ export class ModelLoader {
 
 	private mapMeshtoVoxel(model: any) {
 		let meshScene = []
+		this._loadingModal.visible = true
 		const timestampStart = new Date().getTime();
 		for (let i = 0; i < model.items.length; i++) {
 			// TODO: check capacity
@@ -90,6 +92,10 @@ export class ModelLoader {
 		const timestampEnd = new Date().getTime();
 		console.log(`Success took ${timestampEnd - timestampStart} ms`)
 
+		setTimeout(
+			() => this._loadingModal.visible = false,
+			timestampEnd - timestampStart
+		)
 		return meshScene
 	}
 
@@ -148,7 +154,6 @@ export class ModelLoader {
 			// 	continue;
 			// }
 			// Otherwise load the IFC and cache it
-
 			const rawBuffer = await file.arrayBuffer();
 			const buffer = new Uint8Array(rawBuffer);
 			const loader = await this._components.tools.get(OBC.FragmentIfcLoader);
@@ -159,7 +164,7 @@ export class ModelLoader {
 			let x = Math.abs(boundingBox.max.x - boundingBox.min.x)
 			let y = Math.abs(boundingBox.max.y - boundingBox.min.y)
 			let z = Math.abs(boundingBox.max.z - boundingBox.min.z)
-			let range = Math.sqrt((x * y * z) / 5000000).toFixed(1)
+			let range = Math.sqrt((x * y * z) / 7000).toFixed(1)
 			this.params = {
 				...paramsDefault,
 				gridSize: parseFloat(range),
@@ -172,8 +177,6 @@ export class ModelLoader {
 
 			await this.setupLoadedModel(model);
 			await this.voxelButton(model)
-
-			console.log('model', model)
 
 			// if (!isCached) {
 			// 	await cacher.saveFragmentGroup(model, fileID);
@@ -473,7 +476,6 @@ export class ModelLoader {
 	private voxelButton(model: any) {
 		let buttonActive = true
 		const scene = this._components.scene.get();
-
 		const mainToolbar = new OBC.Toolbar(this._components, {
 			name: 'top',
 			position: "top",
@@ -484,13 +486,14 @@ export class ModelLoader {
 		voxelButton.onClick.add(() => {
 			if (buttonActive) {
 				// scene.remove(model)
-				this.toggleElementProxy(model, false);
 				let mesh = this.mapMeshtoVoxel(model)
 				this.currentMesh = mesh
-				this.createNewGui(scene, mesh, model)
+				this.createNewGui(mesh, model)
+				this.toggleElementProxy(model, false);
 				mesh.map((item: any) => scene.add(item))
 			} else {
 				// scene.add(model)
+				this.currentGui?.destroy()
 				this.toggleElementProxy(model, true);
 				this.currentMesh.map((item: any) => scene.remove(item))
 			}
@@ -500,32 +503,50 @@ export class ModelLoader {
 		mainToolbar.addChild(voxelButton)
 	}
 
-	private async toggleElementProxy(model: any, visiable: boolean){
+	private async toggleElementProxy(model: any, visiable: boolean) {
 		const tools = this._components.tools;
 		const classifier = await tools.get(OBC.FragmentClassifier);
 		const hider = await tools.get(OBC.FragmentHider);
 
-		const elementProxy = await classifier.find({entities: ["IFCBUILDINGELEMENTPROXY"]});
+		const elementProxy = await classifier.find({ entities: ["IFCBUILDINGELEMENTPROXY"] });
 		hider.set(visiable, elementProxy);
 	}
 
-	private createNewGui(scene: any, mesh: any, model: any) {
-		let currentBoxSize = this.params.boxSize
-		const gui = new GUI()
-		gui.add(this.params, "gridSize", this.minGridSize, 2).step(.1).onChange(() => {
-			mesh.map((item: any) => scene.remove(item))
-			mesh = this.mapMeshtoVoxel(model)
-			this.currentMesh = mesh
-			mesh.map((item: any) => scene.add(item))
+	private createNewGui(mesh: any, model: any) {
+		const scene = this._components.scene.get();
 
-			this.createNewGui(scene, mesh, model)
-		}).name("grid size");
-		gui.add(this.params, "boxSize", .1, this.params.gridSize).step(.1).setValue(currentBoxSize && currentBoxSize <= this.params.gridSize ? currentBoxSize : this.params.gridSize).onChange((value) => {
-			currentBoxSize = value
-			mesh.map((item: any) => scene.remove(item))
-			mesh = this.mapMeshtoVoxel(model)
-			this.currentMesh = mesh
-			mesh.map((item: any) => scene.add(item))
+		const gui = new GUI()
+		this.currentGui = gui
+		let currentBoxSize = this.params.boxSize
+		let currentGridSize = this.params.gridSize
+		let currentRoundness = this.params.boxRoundness
+		gui.add(this.params, "gridSize", this.minGridSize, 2).step(.1).onChange((value: any) => {
+			if (currentGridSize !== value) {
+				currentGridSize = value
+				mesh.map((item: any) => scene.remove(item))
+				mesh = this.mapMeshtoVoxel(model)
+				this.currentMesh = mesh
+				mesh.map((item: any) => scene.add(item))
+			}
+		})
+		gui.add(this.params, "boxSize", .1, this.params.gridSize).step(.1).setValue(currentBoxSize && currentBoxSize <= this.params.gridSize ? currentBoxSize : this.params.gridSize).onChange((value: any) => {
+			if (currentBoxSize !== value) {
+				currentBoxSize = value
+				mesh.map((item: any) => scene.remove(item))
+				mesh = this.mapMeshtoVoxel(model)
+				this.currentMesh = mesh
+				mesh.map((item: any) => scene.add(item))
+			}
+		})
+		gui.add(this.params, "boxRoundness", 0, 0.2).step(0.01).onChange((value: any) => {
+			if (currentRoundness !== value) {
+				currentRoundness = value
+				mesh.map((item: any) => scene.remove(item))
+				mesh = this.mapMeshtoVoxel(model)
+				this.currentMesh = mesh
+				mesh.map((item: any) => scene.add(item))
+			}
+
 		})
 	}
 }
