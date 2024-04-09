@@ -157,18 +157,18 @@ export class ModelLoader {
 			// scene.add(mesh)
 
 			const timestampStart = new Date().getTime();
-			for (let i = 0; i < model.items.length; i++) {
-				// TODO: check capacity
-				if (model.items[i].capacity === 1) {
-					let voxelTask = this.newVoxelizeModel(model.items[i].mesh as FragmentMesh)
-					const arr = []
-					for (const item of voxelTask) {
-						arr.push(item)
-					}
-					let mesh = this.recreateInstancedMesh(arr, arr.length)
-					scene.add(mesh)
-				}
-			}
+			// for (let i = 0; i < model.items.length; i++) {
+			// 	// TODO: check capacity
+			// 	if (model.items[i].capacity === 1) {
+			// 		let voxelTask = this.newVoxelizeModel(model.items[i].mesh as FragmentMesh)
+			// 		const arr = []
+			// 		for (const item of voxelTask) {
+			// 			arr.push(item)
+			// 		}
+			// 		let mesh = this.recreateInstancedMesh(arr, arr.length)
+			// 		scene.add(mesh)
+			// 	}
+			// }
 			const timestampEnd = new Date().getTime();
 			console.log(`Success took ${timestampEnd - timestampStart} ms`)
 
@@ -179,7 +179,7 @@ export class ModelLoader {
 			// 	scene.add(mesh)
 			// })
 
-			// scene.add(model)
+			scene.add(model)
 			// scene.add(model.items[1].mesh)
 			// }
 
